@@ -13,5 +13,5 @@ I worked alone on this project.
 8. To generate an updated ko file, compile the module using Makefile.
 9. Using rmmod cmpe283-1, uninstall the previously installed module.
 10. Install the updated module with insmod./cmpe283-1.ko.
-11. Print the logs using dmesg.
+11. Print the logs using dmesg
 <img width="1458" alt="vmx-capabilities-all (1)" src="https://user-images.githubusercontent.com/98665897/200442649-abb66f32-c2b3-41f5-815a-a1bab340cfb2.png">
