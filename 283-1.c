@@ -1,40 +1,23 @@
-/*  
- *  cmpe283-1.c - Kernel module for CMPE283 assignment 1
- */
 
-#include <linux/module.h>	/* Needed by all modules */
-#include <linux/kernel.h>	/* Needed for KERN_INFO */
+#include <linux/module.h>	
+#include <linux/kernel.h>
 #include <asm/msr.h>
 
 #define MAX_MSG 80
 
 /*
  * Model specific registers (MSRs) by the module.
- * See SDM volume 4, section 2.1
+ * See SDM volume 4, section 2.1, Table 2.2
  */
 #define IA32_VMX_PINBASED_CTLS	0x481
-
-#define IA32_VMX_BASIC_CTLS 0x480
-
 #define IA32_VMX_PROCBASED_CTLS 0x482
-
 #define IA32_VMX_PROCBASED_CTLS2 0x48B
-
 #define IA32_VMX_EXIT_CTLS 0x483
-
 #define IA32_VMX_ENTRY_CTLS 0x484
-
-#define IA32_VMX_TRUE_PINBASED_CTLS 0x48D
-
-#define IA32_VMX_TRUE_PROCBASED_CTLS 0x48E
-
-#define IA32_VMX_TRUE_EXIT_CTLS 0x48F
-
-#define IA32_VMX_TRUE_ENTRY_CTLS 0x490
-
+#define IA32_VMX_PROCBASED_CTLS3 0x492
 
 /*
- * struct capability_info
+ * struct caapability_info
  *
  * Represents a single capability (bit number and description).
  * Used by report_capability to output VMX capabilities.
@@ -47,7 +30,7 @@ struct capability_info {
 
 /*
  * Pinbased capabilities
- * See SDM volume 3, section 24.6.1
+ * See SDM volume 3, section 24.6.1 Table 24.5 Page 3746
  */
 struct capability_info pinbased[5] =
 {
@@ -59,100 +42,128 @@ struct capability_info pinbased[5] =
 };
 
 /*
-* Procbased Controls
-*/
-struct capability_info procbased[21] =
-{
-	{2 , "Interrupt-window" },
-	{3 , "Use TSC offsetting" },
-	{7 , "HLT exiting" },
-	{9 , "INVLPG exiting" },
-	{10 , "MWAIT exiting" },
-	{11 , "RDPMC exiting" },
-	{12 , "RDTSC exiting" },
-	{15 , "CR3-load exiting" },
-	{16 , "CR3-store exiting" },
-	{19 , "CR8-load exiting" },
-	{20 , "CR8-store exiting" },
-	{21 , "Use TPR shadow" },
-	{22 , "NMI-window exiting" },
-	{23 , "MOV-DR exiting" },
-	{24 , "Unconditional I/O" },
-	{25 , "Use I/O bitmaps" },
-	{27 , "Monitor trap flag" },
-	{28 , "Use MSR Bitmaps" },
-	{29 , "MONITOR exiting" },
-	{30 , "PAUSE exiting" },
-	{31 , "Activate secondary controls" }
-};
-
-/*
-* Procbased_ctls2 Controls
-*/
-struct capability_info procbased_ctls2[23] =
-{
-	{ 0, "Virtualize APIC accesses" },
-	{ 1, "Enable EPT" },
-	{ 2, "Descriptor-table exiting" },
-	{ 3, "Enable RDTSCP" },
-	{ 4, "Virtualize x2APIC mode" },
-	{ 5, "Enable VPID" },
-	{ 6, "WBINVD exiting" },
-	{ 7, "Unrestricted guest" },
-	{ 8, "APIC-register virtualization" },
-	{ 9, "Virtual-interrupt delivery" },
-	{ 10, "PAUSE-loop exiting" },
-	{ 11, "RDRAND exiting" },
-	{ 12, "Enable INVPCID" },
-	{ 13, "Enable VM functions" },
-	{ 14, "VMCS shadowing" },
-	{ 15, "Enable ENCLS exiting" },
-	{ 16, "RDSEED exiting" },
-	{ 17, "Enable PML" },
-	{ 18, "EPT-violation" },
-	{ 19, "Conceal VMX nonroot operation from Intel PT" },
-	{ 20, "Enable XSAVES/XRSTORS" },
-	{ 22, "Mode-based execute control for EPT" },
-	{ 25, "Use TSC scaling" }
-};
-
-/*
- * Entry Controls
+ * Primary Processor-based capabilities
+ * See SDM volume 3, section 24.6.2 Table 24.6 Page 3746,3747
  */
-struct capability_info entry[9] =
+struct capability_info procbased_primary[21] =
 {
-	{ 2, "Load debug controls" },
-	{ 9, "IA-32e mode guest" },
-	{ 10, "Entry to SMM" },
-	{ 11, "Deactivate dual-monitor treatment" },
-	{ 13, "Load IA32_PERF_GLOBAL_CTRL" },
-	{ 14, "Load IA32_PAT" },
-	{ 15, "Load IA32_EFER" },
-	{ 16, "Load IA32_BNDCFGS" },
-	{ 17, "Conceal VM entries from Intel PT" }
+    {2, "Interrupt-window exiting" },
+    {3, "Use TSC offsetting" },
+    {7, "HLT exiting" },
+    {9, "INVLPG exiting" },
+    {10, "MWAIT exiting" },
+    {11, "RDPMC exiting" },
+    {12, "RDTSC exiting" },
+    {15, "CR3-load exiting" },
+    {16, "CR3-store exiting" },
+    {17, "Activate tertiary controls" },
+    {19, "CR8-load exiting" },
+    {20, "CR8-store exiting" },
+    {21, "Use TPR shadow" },
+    {22, "NMI-window exiting" },
+    {23, "MOV-DR exiting" },
+    {24, "Unconditional I/O exiting" },
+    {25, "Use I/O bitmaps" },
+    {27, "Monitor trap flag" },
+    {29, "MONITOR exiting" },
+    {30, "PAUSE exiting" },
+    {31, "Activate secondary controls" }
+
+};
+
+/*
+ * Secondary Processor-based capabilities
+ * See SDM volume 3, section 24.6.2 Table 24.7 Page 3748
+ */
+struct capability_info procbased_secondary[27] =
+{
+    {0, "Virtualize APIC accesses" },
+    {1, "Enable EPT" },
+    {2, "Descriptor-table exiting" },
+    {3, "Enable RDTSCP" },
+    {4, "Virtualize x2APIC mode" },
+    {5, "Enable VPID" },
+    {6, "WBINVD exiting" },
+    {7, "Unrestricted guest" },
+    {8, "APIC-register virtualization" },
+    {9, "Virtual-interrupt delivery" },
+    {10, "PAUSE-loop exiting" },
+    {11, "RDRAND exiting" },
+    {12, "Enable INVPCID" },
+    {13, "Enable VM functions" },
+    {14, "VMCS shadowing" },
+    {15, "Enable ENCLS exiting" },
+    {16, "RDSEED exiting" },
+    {17, "Enable PML" },
+    {18, "EPT-violation #VE" },
+    {19, "Conceal VMX from PT" },
+    {20, "Enable XSAVES/XRSTORS" },
+    {22, "Mode-based execute control for EPT" },
+    {23, "Sub-page write permissions for EPT" },
+    {24, "Intel PT uses guest physical addresses" },
+    {25, "Use TSC scaling" },
+    {26, "Enable user wait and pause" },
+    {28, "Enable ENCLV exiting" }
 };
 
 
 /*
- * Exit Controls 
+ * Tertiary Processor-based capabilities
+ * See SDM volume 3, section 24.6.2 Table 24.8 Page 3749
  */
-struct capability_info exit[11] =
-{
-	{ 2, "Save debug controls" },
-	{ 9, "Host addressspace size" },
-	{ 12, "Load IA32_PERF_GLOB AL_CTRL" },
-	{ 15, "Acknowledge interrupt on exit" },
-	{ 18, "Save IA32_PAT" },
-	{ 19, "Load IA32_PAT" },
-	{ 20, "Save IA32_EEFR" },
-	{ 21, "Load IA32_EFER" },
-	{ 22, "Save VMXpreemption timer value" },
-	{ 23, "Clear IA32_BNDCFGS" },
-	{ 24, "Conceal VM exits from Intel PT" },
+struct capability_info procbased_tertiary[4] =
+{     
+    {0, "LOADIWKEY exiting" },
+    {1, "Enable HLAT" },
+    {2, "EPT paging-write control" },
+    {3, "Guest-paging verification" }
+};
+
+/*
+ * VM-Exit Controls capabilities
+ * See SDM volume 3, section 24.6.2 Table 24.13 Page 3756
+ */
+struct capability_info vm_exit_controls[16] =
+{	
+    {2, "Save debug controls" },
+    {9, "Host address-space size" },
+    {12, "Load IA32_PERF_GLOBAL_CTRL" },
+    {15, "Acknowledge interrupt on exit" },
+    {18, "Save IA32_PAT" },
+    {19, "Load IA32_PAT" },
+    {20, "Save IA32_EFER" },
+    {21, "Load IA32_EFER" },
+    {22, "Save VMXpreemption timer value" },
+    {23, "Clear IA32_BNDCFGS" },
+    {24, "Conceal VMX from PT" },
+    {25, "Clear IA32_RTIT_CTL" },
+    {26, "Clear IA32_LBR_CTL" },
+    {28, "Load CET state" },
+    {29, "Load PKRS" },
+    {31, "Activate secondary controls" }
 };
 
 
-
+/*
+ *  VM-Entry Controls capabilities
+ * See  SDM volume 3, section 24.6.2 Table 24.15 Page 3758
+ */
+struct capability_info vm_entry_controls[13] =
+{     
+    {2, "Load debug controls" },
+    {9, "IA-32e mode guest" },
+    {10, "Entry to SMM" },
+    {11, "Deactivate dualmonitor treatment" },
+    {13, "Load IA32_PERF_GLOBAL_CTRL" },
+    {14, "Load IA32_PAT" },
+    {15, "Load IA32_EFER" },
+    {16, "Load IA32_BNDCFGS" },
+    {17, "Conceal VMX from PT" },
+    {18, "Load IA32_RTIT_CTL" },
+    {20, "Load CET state" },
+    {21, "Load guest IA32_LBR_CTL" },
+    {22, "Load PKRS" }
+};
 /*
  * report_capability
  *
@@ -193,93 +204,60 @@ report_capability(struct capability_info *cap, uint8_t len, uint32_t lo,
 void
 detect_vmx_features(void)
 {
-	uint32_t lo, hi;
-	
-	rdmsr(IA32_VMX_BASIC_CTLS, lo, hi);
-	pr_info("Basic Controls MSR: 0x%llx\n",
+	uint32_t lo, hi,check_secondary_exists, check_teritary_exists ;
+
+	/* Pinbased controls */
+	rdmsr(IA32_VMX_PINBASED_CTLS, lo, hi);
+	pr_info("Pinbased Controls MSR: 0x%llx\n",
 		(uint64_t)(lo | (uint64_t)hi << 32));
-	//report_capability(pinbased, 5, lo, hi);
+	report_capability(pinbased, 5, lo, hi);
+
+    /* Exit controls */
+	rdmsr(IA32_VMX_EXIT_CTLS, lo, hi);
+	pr_info("Exit Controls MSR: 0x%llx\n",
+		(uint64_t)(lo | (uint64_t)hi << 32));
+	report_capability(vm_exit_controls, 14, lo, hi);
 	
-	pr_info("\n");
-
-	if(!((hi>>23)&& 1))
-	{
-		/* Pinbased controls */
-		rdmsr(IA32_VMX_PINBASED_CTLS, lo, hi);
-		pr_info("Pinbased Controls MSR: 0x%llx\n",
-			(uint64_t)(lo | (uint64_t)hi << 32));
-		report_capability(pinbased, 5, lo, hi);
-
-		pr_info("\n");
-		
-		/* Procbased controls */
-		rdmsr(IA32_VMX_PROCBASED_CTLS, lo, hi);
-		pr_info("Procbased Controls MSR: 0x%llx\n",
-			(uint64_t)(lo | (uint64_t)hi << 32));
-		report_capability(procbased, 21, lo, hi);
-
-		pr_info("\n");
-		
-		if((hi>>31)&& 1)
-		{
-			/* Procbased_ctls2 controls */
-			rdmsr(IA32_VMX_PROCBASED_CTLS2, lo, hi);
-			pr_info("Procbased_ctls2 Controls MSR: 0x%llx\n",
-				(uint64_t)(lo | (uint64_t)hi << 32));
-			report_capability(procbased_ctls2, 23, lo, hi);
-
-			pr_info("\n");
-		}
-		
-		/* Exit controls */
-		rdmsr(IA32_VMX_EXIT_CTLS, lo, hi);
-		pr_info("Exit Controls MSR: 0x%llx\n",
-			(uint64_t)(lo | (uint64_t)hi << 32));
-		report_capability(exit, 11, lo, hi);
-
-		pr_info("\n");
-		
-		/* Entry controls */
-		rdmsr(IA32_VMX_ENTRY_CTLS, lo, hi);
-		pr_info("Entry Controls MSR: 0x%llx\n",
-			(uint64_t)(lo | (uint64_t)hi << 32));
-		report_capability(entry, 9, lo, hi);
 	
-	}
-	else
-	{
-		/* True Pinbased controls */
-		rdmsr(IA32_VMX_TRUE_PINBASED_CTLS, lo, hi);
-		pr_info("Pinbased Controls MSR: 0x%llx\n",
-			(uint64_t)(lo | (uint64_t)hi << 32));
-		report_capability(pinbased, 5, lo, hi);
+	/* Entry controls */
+	rdmsr(IA32_VMX_ENTRY_CTLS, lo, hi);
+	pr_info("Entry Controls MSR: 0x%llx\n",
+		(uint64_t)(lo | (uint64_t)hi << 32));
+	report_capability(vm_entry_controls, 12, lo, hi);
 
-		pr_info("\n");
-		
-		/* True Procbased controls */
-		rdmsr(IA32_VMX_TRUE_PROCBASED_CTLS, lo, hi);
-		pr_info("Procbased Controls MSR: 0x%llx\n",
-			(uint64_t)(lo | (uint64_t)hi << 32));
-		report_capability(procbased, 21, lo, hi);
-		
-		pr_info("\n");
-		
-		/* True Exit controls */
-		rdmsr(IA32_VMX_TRUE_EXIT_CTLS, lo, hi);
-		pr_info("Exit Controls MSR: 0x%llx\n",
-			(uint64_t)(lo | (uint64_t)hi << 32));
-		report_capability(exit, 11, lo, hi);
+    /* Processor Based VM Execution Controls */
+    
+    /* Primary Procbased controls */
+	rdmsr(IA32_VMX_PROCBASED_CTLS, lo, hi);
+	pr_info("Procbased Primary Controls MSR: 0x%llx\n",
+		(uint64_t)(lo | (uint64_t)hi << 32));
+	report_capability(procbased_primary, 21, lo, hi);
 
-		pr_info("\n");
-		
-		/* True Entry controls */
-		rdmsr(IA32_VMX_TRUE_ENTRY_CTLS, lo, hi);
-		pr_info("Entry Controls MSR: 0x%llx\n",
-			(uint64_t)(lo | (uint64_t)hi << 32));
-		report_capability(entry, 9, lo, hi);
-	}
+    
+    /* Secondary Procbased controls */
+    check_secondary_exists = (hi & (1 << 31)) ? 1 : 0;
 
-
+    if(check_secondary_exists){
+        rdmsr( IA32_VMX_PROCBASED_CTLS2, lo, hi);
+        pr_info("Secondary Procbased controls MSR: 0x%llx\n",
+            (uint64_t)(lo | (uint64_t)hi << 32));
+        report_capability(procbased_secondary, 27, lo, hi);
+    }
+    else {
+        pr_info("Secondary Procbased controls do not exist");
+    }
+    
+    /* Tertiary Procbased controls */
+    check_teritary_exists = (hi & (1 << 17)) ? 1 : 0;
+    if(check_teritary_exists){	
+	    rdmsr(IA32_VMX_PROCBASED_CTLS3, lo, hi);
+	    pr_info("Tertiary Procbased Controls MSR: 0x%llx\n",
+		(uint64_t)(lo | (uint64_t)hi << 32));
+	    report_capability(procbased_tertiary, 4, lo, hi);	
+    }
+    else {
+        pr_info("Tertiary Procbased Controls do not exist");
+    }
 }
 
 /*
@@ -294,13 +272,10 @@ int
 init_module(void)
 {
 	printk(KERN_INFO "CMPE 283 Assignment 1 Module Start\n");
-
 	detect_vmx_features();
-
 	/* 
 	 * A non 0 return means init_module failed; module can't be loaded. 
 	 */
-	cleanup_module();
 	return 0;
 }
 
@@ -314,3 +289,5 @@ cleanup_module(void)
 {
 	printk(KERN_INFO "CMPE 283 Assignment 1 Module Exits\n");
 }
+
+MODULE_LICENSE("GPL");
